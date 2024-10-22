@@ -35,8 +35,9 @@ class ServiceIntegrationTest {
 
     @Test
     void testListen() {
+        String vehicleId = UUID.randomUUID().toString();
         VehicleMessage message = new VehicleMessage();
-        message.setVehicleId(UUID.randomUUID().toString());
+        message.setVehicleId(vehicleId);
         message.setVehicleBrand("TOYOTA");
         message.setTimestamp(Instant.now().toEpochMilli());
 
@@ -50,13 +51,14 @@ class ServiceIntegrationTest {
                 .getCount())
                 .isEqualTo(1L);
 
-        assertThat(redisTemplate.hasKey(LocalDate.now() + ":1234")).isTrue();
+        assertThat(redisTemplate.hasKey(LocalDate.now() + ":" + vehicleId)).isTrue();
     }
 
     @Test
     void testListenWithInvalidVehicleBrand() {
+        String vehicleId = UUID.randomUUID().toString();
         VehicleMessage message = new VehicleMessage();
-        message.setVehicleId(UUID.randomUUID().toString());
+        message.setVehicleId(vehicleId);
         message.setVehicleBrand("UNKNOWN_BRAND");
         message.setTimestamp(Instant.now().toEpochMilli());
 
@@ -70,6 +72,6 @@ class ServiceIntegrationTest {
                 .getCount())
                 .isEqualTo(1L);
 
-        assertThat(redisTemplate.hasKey(LocalDate.now().toString() + ":1234")).isTrue();
+        assertThat(redisTemplate.hasKey(LocalDate.now().toString() + ":" + vehicleId)).isTrue();
     }
 }
