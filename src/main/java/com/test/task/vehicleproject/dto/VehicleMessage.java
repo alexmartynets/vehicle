@@ -10,7 +10,7 @@ public class VehicleMessage {
     private long timestamp;
 
     //  I don't like to keep brands as ENUM because
-    // if we need to add more brands we need to change code and broke SOLID principles,
+    // if we need to add more brands we need to change code and brake SOLID principles,
     // better way to keep it in database or keep in collection using Spring with pattern Strategy
     // and others ways but not using hardcode in enum
     public enum VehicleBrand {
