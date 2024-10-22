@@ -4,6 +4,7 @@ import com.test.task.vehicleproject.dto.VehicleMessage;
 import com.test.task.vehicleproject.model.Vehicle;
 import com.test.task.vehicleproject.repository.VehicleRepository;
 import com.test.task.vehicleproject.service.VehicleMessageService;
+import com.test.task.vehicleproject.util.FindBrandUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,18 +17,20 @@ import java.time.LocalDate;
 @Slf4j
 public class VehicleMessageServiceImpl implements VehicleMessageService {
     private final VehicleRepository vehicleRepository;
+    private final FindBrandUtil findBrandUtil;
 
     @Override
     @Transactional
     public void processVehicleMessage(VehicleMessage message, LocalDate date) {
-        VehicleMessage.VehicleBrand vehicleBrand = VehicleMessage.VehicleBrand.fromString(message.getVehicleBrand());
-        vehicleRepository.findByVehicleBrandAndDate(vehicleBrand.name(), date)
+        String brand = findBrandUtil.findBrand(message.getVehicleBrand());
+
+        vehicleRepository.findByVehicleBrandAndDate(brand, date)
                 .ifPresentOrElse(vehicle -> {
                     vehicle.setCount(vehicle.getCount() + 1);
                     vehicleRepository.save(vehicle);
                 }, () -> {
                     Vehicle vehicle = new Vehicle();
-                    vehicle.setVehicleBrand(vehicleBrand.name());
+                    vehicle.setVehicleBrand(brand);
                     vehicle.setDate(date);
                     vehicle.setCount(1L);
                     vehicleRepository.save(vehicle);
