@@ -11,6 +11,9 @@ import org.springframework.kafka.test.context.EmbeddedKafka;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.Objects;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,50 +31,42 @@ class ServiceIntegrationTest {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+
     @BeforeEach
     void setUp() {
-        redisTemplate.getConnectionFactory().getConnection().flushDb();
+        Objects.requireNonNull(redisTemplate.getConnectionFactory()).getConnection().serverCommands().flushDb();
     }
 
     @Test
-    void testListen() {
+    void shouldStoreVehicleInRepositoryAndCache() {
         String vehicleId = UUID.randomUUID().toString();
-        VehicleMessage message = new VehicleMessage();
-        message.setVehicleId(vehicleId);
-        message.setVehicleBrand("TOYOTA");
-        message.setTimestamp(Instant.now().toEpochMilli());
+        VehicleMessage message = createVehicleMessage(vehicleId, "TOYOTA");
+        vehicleService.listen(Collections.singletonList(message));
 
-        vehicleService.listen(message);
-
-        assertThat(vehicleRepository.findByVehicleBrandAndDate("TOYOTA", LocalDate.now()))
-                .isPresent();
-
-        assertThat(vehicleRepository.findByVehicleBrandAndDate("TOYOTA", LocalDate.now())
-                .get()
-                .getCount())
-                .isEqualTo(1L);
-
-        assertThat(redisTemplate.hasKey(LocalDate.now() + ":" + vehicleId)).isTrue();
+        LocalDate today = LocalDate.now();
+        assertThat(vehicleRepository.findByVehicleBrandAndDate("TOYOTA", today)).isPresent();
+        assertThat(vehicleRepository.findByVehicleBrandAndDate("TOYOTA", today).get().getCount()).isEqualTo(1L);
+        assertThat(redisTemplate.hasKey(today.format(DATE_FORMATTER) + ":" + vehicleId)).isTrue();
     }
 
     @Test
-    void testListenWithInvalidVehicleBrand() {
+    void shouldHandleInvalidVehicleBrand() {
         String vehicleId = UUID.randomUUID().toString();
+        VehicleMessage message = createVehicleMessage(vehicleId, "CHINA");
+        vehicleService.listen(Collections.singletonList(message));
+
+        LocalDate today = LocalDate.now();
+        assertThat(vehicleRepository.findByVehicleBrandAndDate("OTHER", today)).isPresent();
+        assertThat(vehicleRepository.findByVehicleBrandAndDate("OTHER", today).get().getCount()).isEqualTo(1L);
+        assertThat(redisTemplate.hasKey(today.format(DATE_FORMATTER) + ":" + vehicleId)).isTrue();
+    }
+
+    private VehicleMessage createVehicleMessage(String vehicleId, String vehicleBrand) {
         VehicleMessage message = new VehicleMessage();
         message.setVehicleId(vehicleId);
-        message.setVehicleBrand("UNKNOWN_BRAND");
+        message.setVehicleBrand(vehicleBrand);
         message.setTimestamp(Instant.now().toEpochMilli());
-
-        vehicleService.listen(message);
-
-        assertThat(vehicleRepository.findByVehicleBrandAndDate("OTHER", LocalDate.now()))
-                .isPresent();
-
-        assertThat(vehicleRepository.findByVehicleBrandAndDate("OTHER", LocalDate.now())
-                .get()
-                .getCount())
-                .isEqualTo(1L);
-
-        assertThat(redisTemplate.hasKey(LocalDate.now().toString() + ":" + vehicleId)).isTrue();
+        return message;
     }
 }
