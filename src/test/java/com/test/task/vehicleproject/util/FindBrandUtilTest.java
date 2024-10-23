@@ -1,11 +1,9 @@
 package com.test.task.vehicleproject.util;
 
-import com.test.task.vehicleproject.dto.brands.VehicleBrand;
-import com.test.task.vehicleproject.dto.brands.impl.Ford;
-import com.test.task.vehicleproject.dto.brands.impl.Tesla;
+import com.test.task.vehicleproject.brands.VehicleBrand;
+import com.test.task.vehicleproject.brands.impl.Ford;
+import com.test.task.vehicleproject.brands.impl.Tesla;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Arrays;
 import java.util.List;

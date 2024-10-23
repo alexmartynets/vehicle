@@ -1,6 +1,6 @@
 package com.test.task.vehicleproject.util;
 
-import com.test.task.vehicleproject.dto.brands.VehicleBrand;
+import com.test.task.vehicleproject.brands.VehicleBrand;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

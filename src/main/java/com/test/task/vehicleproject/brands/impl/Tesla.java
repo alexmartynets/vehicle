@@ -1,6 +1,6 @@
-package com.test.task.vehicleproject.dto.brands.impl;
+package com.test.task.vehicleproject.brands.impl;
 
-import com.test.task.vehicleproject.dto.brands.VehicleBrand;
+import com.test.task.vehicleproject.brands.VehicleBrand;
 
 public class Tesla implements VehicleBrand {
     @Override

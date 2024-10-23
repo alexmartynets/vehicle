@@ -6,7 +6,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,9 +13,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "vehicle_count",
-        uniqueConstraints = {@UniqueConstraint(columnNames = {"vehicleBrand", "date"})},
-        indexes = {@Index(columnList = "date"), @Index(columnList = "vehicleBrand")})
+@Table(name = "vehicle_count", indexes = {@Index(columnList = "date"), @Index(columnList = "vehicleBrand")})
 @Getter
 @Setter
 public class Vehicle {

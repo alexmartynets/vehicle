@@ -1,4 +1,4 @@
-package com.test.task.vehicleproject.dto.brands;
+package com.test.task.vehicleproject.brands;
 
 public interface VehicleBrand {
     String getVehicleBrand();
