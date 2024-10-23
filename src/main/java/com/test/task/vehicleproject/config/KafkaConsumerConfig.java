@@ -2,6 +2,7 @@ package com.test.task.vehicleproject.config;
 
 import com.test.task.vehicleproject.dto.VehicleMessage;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -18,6 +19,8 @@ import java.util.Map;
 @EnableKafka
 @Configuration
 public class KafkaConsumerConfig {
+    @Value("${spring.kafka.listener.concurrency=3}")
+    private int kafkaConcurrency;
 
     @Bean
     public ConsumerFactory<String, VehicleMessage> consumerFactory() {
@@ -35,6 +38,8 @@ public class KafkaConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<String, VehicleMessage> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, VehicleMessage> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+        factory.setBatchListener(true);
+        factory.setConcurrency(kafkaConcurrency);
         return factory;
     }
 }

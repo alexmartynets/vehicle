@@ -9,12 +9,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.ReturnType;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -34,54 +37,64 @@ public class VehicleService {
     @Value("${redis.script}")
     private String redisScript;
 
-    @KafkaListener(topics = "vehicleTopic", groupId = "vehicleGroup")
-    public void listen(VehicleMessage message) {
-        String vehicleId = message.getVehicleId();
-        if (vehicleId == null || message.getVehicleBrand() == null) {
-            log.error("Invalid message: vehicleId or vehicleBrand is null");
-            return;
-        }
+    @KafkaListener(topics = "vehicleTopic", groupId = "vehicleGroup", containerFactory = "kafkaListenerContainerFactory")
+    public void listen(List<VehicleMessage> messages) {
+        messages.forEach(message -> {
+            String vehicleId = message.getVehicleId();
 
-        LocalDate date = Instant.ofEpochMilli(message.getTimestamp()).atZone(ZoneId.of("UTC")).toLocalDate();
-        String redisKey = date.format(DateTimeFormatter.ISO_LOCAL_DATE) + ":" + vehicleId;
-        String lockKey = "lock:" + redisKey;
-        RLock lock = redissonClient.getLock(lockKey);
-        boolean lockAcquired = false;
+            if (vehicleId == null || message.getVehicleBrand() == null) {
+                log.error("Invalid message: vehicleId or vehicleBrand is null");
+                return;
+            }
 
-        try {
-            lockAcquired = lock.tryLock(timeLock, timeHold, TimeUnit.SECONDS);
-            if (lockAcquired) {
-                if (executeRedisScript(redisKey)) {
-                    vehicleMessageService.processVehicleMessage(message, date);
+            LocalDate date = Instant.ofEpochMilli(message.getTimestamp()).atZone(ZoneId.of("UTC")).toLocalDate();
+            String redisKey = date.format(DateTimeFormatter.ISO_LOCAL_DATE) + ":" + vehicleId;
+            String lockKey = "lock:" + redisKey;
+            RLock lock = redissonClient.getLock(lockKey);
+
+            try {
+                boolean lockAcquired = lock.tryLock(timeLock, timeHold, TimeUnit.SECONDS);
+
+                if (lockAcquired) {
+                    try {
+                        executeRedisScript(redisKey).thenAccept(result -> {
+                            if (Boolean.TRUE.equals(result)) {
+                                vehicleMessageService.processVehicleMessage(message, date);
+                            } else {
+                                log.warn("Could not execute redis script for key: {}", redisKey);
+                            }
+                        }).exceptionally(e -> {
+                            log.error("Error executing Redis script async for key: {}", redisKey, e);
+                            return null;
+                        });
+                    } finally {
+                        lock.unlock();
+                    }
                 } else {
-                    log.warn("Could not execute redis script for key: {}", redisKey);
+                    log.warn("Could not acquire lock for key: {}", redisKey);
                 }
-            } else {
-                log.warn("Could not acquire lock for key: {}", redisKey);
+            } catch (InterruptedException e) {
+                log.error("Error acquiring lock for key: {}", redisKey, e);
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                log.error("Error processing message: {}", message, e);
             }
-        } catch (InterruptedException e) {
-            log.error("Error acquiring lock for key: {}", redisKey, e);
-            Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            log.error("Error processing message: {}", message, e);
-        } finally {
-            if (lockAcquired) {
-                lock.unlock();
-            }
-        }
+        });
+
     }
 
-    private boolean executeRedisScript(String redisKey) {
+    @Async
+    public CompletableFuture<Boolean> executeRedisScript(String redisKey) {
         try {
             Boolean result = redisTemplate.execute(connection -> {
                 byte[] keys = redisTemplate.getStringSerializer().serialize(redisKey);
                 byte[] arg = redisTemplate.getStringSerializer().serialize("true");
                 return connection.scriptingCommands().eval(redisScript.getBytes(), ReturnType.BOOLEAN, 1, keys, arg);
             }, true);
-            return Boolean.TRUE.equals(result);
+            return CompletableFuture.completedFuture(Boolean.TRUE.equals(result));
         } catch (Exception e) {
             log.error("Error executing Redis script for key: {}", redisKey, e);
-            return false;
+            return CompletableFuture.completedFuture(false);
         }
     }
 }
